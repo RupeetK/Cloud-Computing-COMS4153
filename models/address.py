@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class AddressBase(BaseModel):
+
     id: UUID = Field(
         default_factory=uuid4,
         description="Persistent Address ID (server-generated).",
@@ -55,6 +56,7 @@ class AddressBase(BaseModel):
 
 
 class AddressCreate(AddressBase):
+
     """Creation payload; ID is generated server-side but present in the base model."""
     model_config = {
         "json_schema_extra": {

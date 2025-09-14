@@ -11,6 +11,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi import Query, Path
 from typing import Optional
 
+from HW0.models.department import DepartmentRead, DepartmentCreate, DepartmentUpdate, DepartmentBase
+from HW0.models.instructor import InstructorRead, InstructorCreate, InstructorUpdate
 from models.person import PersonCreate, PersonRead, PersonUpdate
 from models.address import AddressCreate, AddressRead, AddressUpdate
 from models.health import Health
@@ -22,6 +24,8 @@ port = int(os.environ.get("FASTAPIPORT", 8000))
 # -----------------------------------------------------------------------------
 persons: Dict[UUID, PersonRead] = {}
 addresses: Dict[UUID, AddressRead] = {}
+departments: Dict[UUID, DepartmentRead] = {}
+instructors: Dict[UUID, InstructorRead] = {}
 
 app = FastAPI(
     title="Person/Address API",
@@ -53,6 +57,7 @@ def get_health_with_path(
     path_echo: str = Path(..., description="Required echo in the URL path"),
     echo: str | None = Query(None, description="Optional echo string"),
 ):
+
     return make_health(echo=echo, path_echo=path_echo)
 
 @app.post("/addresses", response_model=AddressRead, status_code=201)
@@ -158,6 +163,114 @@ def update_person(person_id: UUID, update: PersonUpdate):
     stored.update(update.model_dump(exclude_unset=True))
     persons[person_id] = PersonRead(**stored)
     return persons[person_id]
+
+# -----------------------------------------------------------------------------
+# Department endpoints
+# -----------------------------------------------------------------------------
+
+@app.post(path="/department", response_model=DepartmentRead,status_code=201)
+def create_department(department: DepartmentCreate):
+    if department.id in departments:
+        raise HTTPException(status_code=400, detail="Department with this ID already exists")
+    departments[department.id] = DepartmentRead(**department.model_dump())
+    return departments[department.id]
+
+@app.get("/departments", response_model=List[DepartmentRead])
+def list_departments(
+        dept_name: Optional[str] = Query(None, description="Filter by department name"),
+        building: Optional[str] = Query(None, description="Filter by building name"),
+        budget: Optional[str] = Query(None, description="Filter by budget name"),
+        location: Optional[str] = Query(None, description="Filter by location name"),
+):
+    results = list(departments.values())
+
+    if dept_name is not None:
+        results = [a for a in results if a.dept_name == dept_name]
+    if building is not None:
+        results= [a for a in results if a.building == building]
+    if budget is not None:
+        results = [a for a in results if a.budget == budget]
+    if location is not None:
+        results = [a for a in results if a.location == location]
+
+    return results
+
+@app.get("/departments/{dept_id}", response_model=DepartmentRead)
+def get_department(dept_id: UUID):
+    if dept_id not in departments:
+        raise HTTPException(status_code=404, detail="Department not found")
+    return departments[dept_id]
+
+@app.patch("/departments/{dept_id}", response_model=DepartmentRead)
+def update_department(dept_id: UUID, update: DepartmentUpdate):
+    if dept_id not in departments:
+        raise HTTPException(status_code=404, detail="Department not found")
+    stored = departments[dept_id].model_dump()
+    stored.update(update.model_dump(exclude_unset=True))
+    departments[dept_id] = DepartmentRead(**stored)
+    return departments[dept_id]
+
+
+# -----------------------------------------------------------------------------
+# Instructor endpoints
+# -----------------------------------------------------------------------------
+@app.post(path="/instructors", response_model=InstructorRead,status_code=201)
+def create_instructor(instructor: InstructorCreate):
+    instructor_read=InstructorRead(**instructor.model_dump())
+    instructors[instructor_read.id]=instructor_read
+    return instructor_read
+
+@app.get("/instructors", response_model=List[InstructorRead])
+def list_instructors(
+        uni:Optional[str] = Query(None, description="Filter by Columbia UNI"),
+        first_name: Optional[str] = Query(None, description="Filter by  FIRST NAME"),
+        last_name: Optional[str] = Query(None, description="Filter by  LAST NAME"),
+        email: Optional[str] = Query(None, description="Filter by  EMAIL"),
+        phone: Optional[str] = Query(None, description="Filter by  PHONE"),
+        dept_name: Optional[str] = Query(None, description="Filter by department name")
+):
+    results = list(instructors.values())
+    if uni is not None:
+        results = [p for p in results if p.uni == uni]
+    if first_name is not None:
+        results = [p for p in results if p.first_name == first_name]
+    if last_name is not None:
+        results = [p for p in results if p.last_name == last_name]
+    if email is not None:
+        results = [p for p in results if p.email == email]
+    if phone is not None:
+        results = [p for p in results if p.phone == phone]
+    if dept_name is not None:
+        results = [p for p in results if any(dept.dept_name==dept_name for dept in p.departments)]
+    return results
+
+@app.get("/instructors/{instruct_id}", response_model=InstructorRead)
+def get_instructor(instruct_id: UUID):
+    if instruct_id not in instructors:
+        raise HTTPException(status_code=404, detail="Instructor not found")
+    return instructors[instruct_id]
+
+@app.patch("/instructors/{instruct_id}", response_model=InstructorRead)
+def update_instructor(instruct_id: UUID, update: InstructorUpdate):
+    if instruct_id not in instructors:
+        raise HTTPException(status_code=404, detail="Instructor not found")
+    stored = instructors[instruct_id].model_dump()
+    stored.update(update.model_dump(exclude_unset=True))
+    instructors[instruct_id] = InstructorRead(**stored)
+    return instructors[instruct_id]
+@app.get("/instructors/{instruct_id}/departments", response_model=List[DepartmentBase])
+def get_instructor_departments(instruct_id: UUID):
+    if instruct_id not in instructors:
+        raise HTTPException(status_code=404, detail="Instructor not found")
+    return instructors[instruct_id].departments
+
+@app.delete("/instructors/{instruct_id}", status_code=204)
+def delete_instructor(instruct_id: UUID):
+    if instruct_id not in instructors:
+        raise HTTPException(status_code=404, detail="Instructor not found")
+    del instructors[instruct_id]
+
+
 
 # -----------------------------------------------------------------------------
 # Root
